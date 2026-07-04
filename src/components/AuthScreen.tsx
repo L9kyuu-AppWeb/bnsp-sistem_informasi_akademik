@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Shield, Clock, UserCheck, GraduationCap, ArrowRight } from 'lucide-react';
 
 interface AuthScreenProps {
-  onLogin: (identifier: string) => boolean;
+  onLogin: (identifier: string) => boolean | Promise<boolean>;
   onRegister: (data: {
     username: string;
     email: string;
@@ -31,10 +31,10 @@ export default function AuthScreen({
   const [regTempatLahir, setRegTempatLahir] = useState('');
   const [regTanggalLahir, setRegTanggalLahir] = useState('');
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginIdentifier) return;
-    const success = onLogin(loginIdentifier);
+    const success = await onLogin(loginIdentifier);
     if (!success) {
       alert('Kredensial tidak ditemukan! Gunakan identifier berikut untuk uji coba: "admin", "ahmad", atau "budi".');
     }

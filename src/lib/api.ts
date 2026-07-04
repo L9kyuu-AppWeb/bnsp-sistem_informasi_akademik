@@ -1,0 +1,59 @@
+import { supabase } from './supabase'
+import type { User, Mahasiswa, BerkasPendaftaran, MataKuliah, JadwalKuliah, KRS, DetailKRS, Nilai } from '../types'
+
+type TableName = 'users' | 'mahasiswa' | 'berkas_pendaftaran' | 'mata_kuliah' | 'jadwal_kuliah' | 'krs' | 'detail_krs' | 'nilai'
+
+async function fetchAll<T>(table: TableName): Promise<T[]> {
+  const { data, error } = await supabase.from(table).select('*')
+  if (error) throw error
+  return data as T[]
+}
+
+async function upsert<T>(table: TableName, rows: T[]): Promise<void> {
+  const { error } = await supabase.from(table).upsert(rows as any)
+  if (error) throw error
+}
+
+async function del(table: TableName, column: string, values: string[]): Promise<void> {
+  const { error } = await supabase.from(table).delete().in(column, values)
+  if (error) throw error
+}
+
+// Users
+export const fetchUsers = () => fetchAll<User>('users')
+export const upsertUsers = (rows: User[]) => upsert('users', rows)
+export const deleteUsers = (ids: string[]) => del('users', 'id_user', ids)
+
+// Mahasiswa
+export const fetchMahasiswa = () => fetchAll<Mahasiswa>('mahasiswa')
+export const upsertMahasiswa = (rows: Mahasiswa[]) => upsert('mahasiswa', rows)
+export const deleteMahasiswa = (ids: string[]) => del('mahasiswa', 'user_id', ids)
+
+// Berkas
+export const fetchBerkas = () => fetchAll<BerkasPendaftaran>('berkas_pendaftaran')
+export const upsertBerkas = (rows: BerkasPendaftaran[]) => upsert('berkas_pendaftaran', rows)
+
+// Mata Kuliah
+export const fetchMataKuliah = () => fetchAll<MataKuliah>('mata_kuliah')
+export const upsertMataKuliah = (rows: MataKuliah[]) => upsert('mata_kuliah', rows)
+
+// Jadwal Kuliah
+export const fetchJadwal = () => fetchAll<JadwalKuliah>('jadwal_kuliah')
+export const upsertJadwal = (rows: JadwalKuliah[]) => upsert('jadwal_kuliah', rows)
+export const deleteJadwal = (ids: string[]) => del('jadwal_kuliah', 'id_jadwal', ids)
+
+// KRS
+export const fetchKRS = () => fetchAll<KRS>('krs')
+export const upsertKRS = (rows: KRS[]) => upsert('krs', rows)
+export const deleteKRSByNimSemester = (nim: string, semester: number) =>
+  supabase.from('krs').delete().eq('nim', nim).eq('semester_aktif', semester).then(r => { if (r.error) throw r.error })
+
+// Detail KRS
+export const fetchDetailKRS = () => fetchAll<DetailKRS>('detail_krs')
+export const upsertDetailKRS = (rows: DetailKRS[]) => upsert('detail_krs', rows)
+export const deleteDetailKRSByKrsId = (krsId: string) =>
+  supabase.from('detail_krs').delete().eq('id_krs', krsId).then(r => { if (r.error) throw r.error })
+
+// Nilai
+export const fetchNilai = () => fetchAll<Nilai>('nilai')
+export const upsertNilai = (rows: Nilai[]) => upsert('nilai', rows)

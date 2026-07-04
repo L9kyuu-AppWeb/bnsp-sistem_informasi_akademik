@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mahasiswa, BerkasPendaftaran, MataKuliah, JadwalKuliah, KRS, DetailKRS, Nilai } from './types';
-import {
-  initialUsers,
-  initialMahasiswa,
-  initialBerkasPendaftaran,
-  initialMataKuliah,
-  initialJadwalKuliah,
-  initialNilai,
-} from './data';
+import * as api from './lib/api';
+import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import SimulatorBar from './components/SimulatorBar';
 import AuthScreen from './components/AuthScreen';
@@ -16,362 +10,244 @@ import MahasiswaActiveView from './components/MahasiswaActiveView';
 import AdminView from './components/AdminView';
 
 export default function App() {
-  // --- Persistent State Keys ---
-  const STORAGE_PREFIX = 'sia_v1_';
+  const [loading, setLoading] = useState(true)
+  const [users, setUsers] = useState<User[]>([]);
+  const [mahasiswa, setMahasiswa] = useState<Mahasiswa[]>([]);
+  const [berkasList, setBerkasList] = useState<BerkasPendaftaran[]>([]);
+  const [mataKuliahList, setMataKuliahList] = useState<MataKuliah[]>([]);
+  const [jadwalKuliahList, setJadwalKuliahList] = useState<JadwalKuliah[]>([]);
+  const [nilaiList, setNilaiList] = useState<Nilai[]>([]);
+  const [krsList, setKrsList] = useState<KRS[]>([]);
+  const [detailKrsList, setDetailKrsList] = useState<DetailKRS[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentSystemSemester, setCurrentSystemSemester] = useState<number>(3);
+  const [semesters, setSemesters] = useState<number[]>([3, 4]);
 
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}users`);
-    return saved ? JSON.parse(saved) : initialUsers;
-  });
+  useEffect(() => {
+    (async () => {
+      try {
+        const [u, m, b, mk, j, n, k, dk] = await Promise.all([
+          api.fetchUsers(),
+          api.fetchMahasiswa(),
+          api.fetchBerkas(),
+          api.fetchMataKuliah(),
+          api.fetchJadwal(),
+          api.fetchNilai(),
+          api.fetchKRS(),
+          api.fetchDetailKRS(),
+        ])
+        setUsers(u)
+        setMahasiswa(m)
+        setBerkasList(b)
+        setMataKuliahList(mk)
+        setJadwalKuliahList(j)
+        setNilaiList(n)
+        setKrsList(k)
+        setDetailKrsList(dk)
+      } catch (err: any) {
+        console.error('Gagal load data dari Supabase:', err)
+        const msg = err?.message || err?.error_description || JSON.stringify(err)
+        alert(`Gagal memuat data dari database.\n\nError: ${msg}\n\nLangkah:\n1. Buka src/lib/migration.sql\n2. Copy semua SQL\n3. Buka Supabase Dashboard → SQL Editor → Paste & Run\n4. Refresh halaman`)
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [])
 
-  const [mahasiswa, setMahasiswa] = useState<Mahasiswa[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}mahasiswa`);
-    return saved ? JSON.parse(saved) : initialMahasiswa;
-  });
-
-  const [berkasList, setBerkasList] = useState<BerkasPendaftaran[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}berkasList`);
-    return saved ? JSON.parse(saved) : initialBerkasPendaftaran;
-  });
-
-  const [mataKuliahList, setMataKuliahList] = useState<MataKuliah[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}mataKuliahList`);
-    return saved ? JSON.parse(saved) : initialMataKuliah;
-  });
-
-  const [jadwalKuliahList, setJadwalKuliahList] = useState<JadwalKuliah[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}jadwalKuliahList`);
-    return saved ? JSON.parse(saved) : initialJadwalKuliah;
-  });
-
-  const [nilaiList, setNilaiList] = useState<Nilai[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}nilaiList`);
-    return saved ? JSON.parse(saved) : initialNilai;
-  });
-
-  const [krsList, setKrsList] = useState<KRS[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}krsList`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [detailKrsList, setDetailKrsList] = useState<DetailKRS[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}detailKrsList`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}currentUser`);
-    return saved ? JSON.parse(saved) : null;
-  });
-
-  const [currentSystemSemester, setCurrentSystemSemester] = useState<number>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}currentSystemSemester`);
-    return saved ? Number(saved) : 3;
-  });
-
-  const [semesters, setSemesters] = useState<number[]>(() => {
-    const saved = localStorage.getItem(`${STORAGE_PREFIX}semesters`);
-    return saved ? JSON.parse(saved) : [3, 4];
-  });
+  const handleResetData = async () => {
+    if (!confirm('Reset semua data ke awal? Data di database akan dihapus.')) return
+    const tables = ['detail_krs', 'krs', 'nilai', 'berkas_pendaftaran', 'jadwal_kuliah', 'mahasiswa', 'mata_kuliah', 'users']
+    for (const t of tables) {
+      await supabase.from(t).delete().neq('id', '00000000-0000-0000-0000-000000000000')
+    }
+    window.location.reload()
+  }
 
   const handleAddSemester = (sem: number) => {
-    setSemesters((prev) => {
-      const next = [...prev, sem].sort((a, b) => a - b);
-      localStorage.setItem(`${STORAGE_PREFIX}semesters`, JSON.stringify(next));
-      return next;
-    });
-  };
+    setSemesters(prev => [...prev, sem].sort((a, b) => a - b))
+  }
 
-  // --- Save states to LocalStorage on change ---
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}currentSystemSemester`, currentSystemSemester.toString());
-  }, [currentSystemSemester]);
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}users`, JSON.stringify(users));
-  }, [users]);
+  const handleLogin = async (identifier: string): Promise<boolean> => {
+    const cleanId = identifier.trim().toLowerCase()
+    let match = users.find(u => u.username.toLowerCase() === cleanId || u.email.toLowerCase() === cleanId)
 
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}mahasiswa`, JSON.stringify(mahasiswa));
-  }, [mahasiswa]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}berkasList`, JSON.stringify(berkasList));
-  }, [berkasList]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}mataKuliahList`, JSON.stringify(mataKuliahList));
-  }, [mataKuliahList]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}jadwalKuliahList`, JSON.stringify(jadwalKuliahList));
-  }, [jadwalKuliahList]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}nilaiList`, JSON.stringify(nilaiList));
-  }, [nilaiList]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}krsList`, JSON.stringify(krsList));
-  }, [krsList]);
-
-  useEffect(() => {
-    localStorage.setItem(`${STORAGE_PREFIX}detailKrsList`, JSON.stringify(detailKrsList));
-  }, [detailKrsList]);
-
-  useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem(`${STORAGE_PREFIX}currentUser`, JSON.stringify(currentUser));
-    } else {
-      localStorage.removeItem(`${STORAGE_PREFIX}currentUser`);
-    }
-  }, [currentUser]);
-
-  // --- Business Logic Functions ---
-
-  // Handle Login using username, email, or NIM
-  const handleLogin = (identifier: string): boolean => {
-    const cleanId = identifier.trim().toLowerCase();
-    
-    // 1. Try finding by username or email in users table
-    let foundUser = users.find(
-      (u) => u.username.toLowerCase() === cleanId || u.email.toLowerCase() === cleanId
-    );
-
-    // 2. Try finding by NIM in mahasiswa table
-    if (!foundUser) {
-      const mhs = mahasiswa.find((m) => m.nim.toLowerCase() === cleanId);
-      if (mhs) {
-        foundUser = users.find((u) => u.id_user === mhs.id_user);
-      }
+    if (!match) {
+      const mhs = mahasiswa.find(m => m.nim.toLowerCase() === cleanId)
+      if (mhs) match = users.find(u => u.id_user === mhs.id_user)
     }
 
-    if (foundUser) {
-      setCurrentUser(foundUser);
-      return true;
+    if (match) {
+      setCurrentUser(match)
+      return true
     }
-    return false;
-  };
+    return false
+  }
 
-  // Register a new calon maba
-  const handleRegister = (data: {
-    username: string;
-    email: string;
-    nama: string;
-    tempatLahir: string;
-    tanggalLahir: string;
+  const handleRegister = async (data: {
+    username: string; email: string; nama: string;
+    tempatLahir: string; tanggalLahir: string;
   }) => {
-    const newUserId = `U_${Date.now()}`;
-    
-    const newUser: User = {
-      id_user: newUserId,
-      username: data.username,
-      email: data.email,
-      role: 'maba',
-    };
-
+    const newUserId = `U_${Date.now()}`
+    const newUser: User = { id_user: newUserId, username: data.username, email: data.email, role: 'maba' }
     const newMhs: Mahasiswa = {
-      nim: '', // Empty until admin approves
-      id_user: newUserId,
-      nama: data.nama,
-      tempat_lahir: data.tempatLahir,
-      tanggal_lahir: data.tanggalLahir,
-      status: 'Calon',
-    };
+      nim: '', id_user: newUserId, nama: data.nama,
+      tempat_lahir: data.tempatLahir, tanggal_lahir: data.tanggalLahir, status: 'Calon'
+    }
 
-    setUsers((prev) => [...prev, newUser]);
-    setMahasiswa((prev) => [...prev, newMhs]);
-    
-    // Automatically log in the newly registered user for a seamless experience
-    setCurrentUser(newUser);
-  };
+    await api.upsertUsers([newUser])
+    await api.upsertMahasiswa([newMhs])
 
-  // Switch user instantly from the Simulator Bar
+    setUsers(prev => [...prev, newUser])
+    setMahasiswa(prev => [...prev, newMhs])
+    setCurrentUser(newUser)
+  }
+
   const handleSwitchUser = (userId: string) => {
-    const targetUser = users.find((u) => u.id_user === userId);
-    if (targetUser) {
-      setCurrentUser(targetUser);
-    }
-  };
+    const targetUser = users.find(u => u.id_user === userId)
+    if (targetUser) setCurrentUser(targetUser)
+  }
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-  };
+  const handleLogout = () => setCurrentUser(null)
 
-  // Reset demo data back to initial states
-  const handleResetData = () => {
-    localStorage.clear();
-    setUsers(initialUsers);
-    setMahasiswa(initialMahasiswa);
-    setBerkasList(initialBerkasPendaftaran);
-    setMataKuliahList(initialMataKuliah);
-    setJadwalKuliahList(initialJadwalKuliah);
-    setNilaiList(initialNilai);
-    setKrsList([]);
-    setDetailKrsList([]);
-    setSemesters([3, 4]);
-    setCurrentUser(null);
-  };
+  const handleUpdateProfile = async (namaInput: string, tempat: string, tgl: string) => {
+    if (!currentUser) return
+    const updated = mahasiswa.map(m =>
+      m.id_user === currentUser.id_user
+        ? { ...m, nama: namaInput, tempat_lahir: tempat, tanggal_lahir: tgl }
+        : m
+    )
+    setMahasiswa(updated)
+    const target = updated.find(m => m.id_user === currentUser.id_user)
+    if (target) await api.upsertMahasiswa([target])
+  }
 
-  // Calon Maba: Update profile biodata
-  const handleUpdateProfile = (namaInput: string, tempat: string, tgl: string) => {
-    if (!currentUser) return;
-    setMahasiswa((prev) =>
-      prev.map((m) =>
-        m.id_user === currentUser.id_user
-          ? { ...m, nama: namaInput, tempat_lahir: tempat, tanggal_lahir: tgl }
-          : m
-      )
-    );
-  };
+  const handleUploadBerkas = async (ijazahName: string, transkripName: string) => {
+    if (!currentUser) return
+    const existing = berkasList.find(b => b.id_user === currentUser.id_user)
+    const updated: BerkasPendaftaran = existing
+      ? { ...existing, file_ijazah_name: ijazahName, file_transkrip_name: transkripName, status_verifikasi: 'Pending', catatan: '' }
+      : { id_berkas: `B_${Date.now()}`, id_user: currentUser.id_user, file_ijazah_name: ijazahName, file_transkrip_name: transkripName, status_verifikasi: 'Pending', uploaded_at: new Date().toISOString() }
 
-  // Calon Maba: Upload mock documents
-  const handleUploadBerkas = (ijazahName: string, transkripName: string) => {
-    if (!currentUser) return;
-    
-    // Check if there is an existing record to update (e.g. if recovering from a rejection)
-    const existingIndex = berkasList.findIndex((b) => b.id_user === currentUser.id_user);
-    
-    if (existingIndex > -1) {
-      setBerkasList((prev) =>
-        prev.map((b) =>
-          b.id_user === currentUser.id_user
-            ? {
-                ...b,
-                file_ijazah_name: ijazahName,
-                file_transkrip_name: transkripName,
-                status_verifikasi: 'Pending',
-                catatan: '',
-              }
-            : b
-        )
-      );
-    } else {
-      const newBerkas: BerkasPendaftaran = {
-        id_berkas: `B_${Date.now()}`,
-        id_user: currentUser.id_user,
-        file_ijazah_name: ijazahName,
-        file_transkrip_name: transkripName,
-        status_verifikasi: 'Pending',
-        uploaded_at: new Date().toISOString(),
-      };
-      setBerkasList((prev) => [...prev, newBerkas]);
-    }
-  };
+    setBerkasList(prev => prev.filter(b => b.id_user !== currentUser.id_user).concat(updated))
+    await api.upsertBerkas([updated])
+  }
 
-  // Instant login as active student once approved
-  const handleSwitchToActiveStudent = () => {
-    if (!currentUser) return;
-    const mhs = mahasiswa.find((m) => m.id_user === currentUser.id_user);
+  const handleSwitchToActiveStudent = async () => {
+    if (!currentUser) return
+    const mhs = mahasiswa.find(m => m.id_user === currentUser.id_user)
     if (mhs && mhs.status === 'Aktif') {
-      const updatedUser: User = { ...currentUser, role: 'mahasiswa' };
-      setUsers((prev) => prev.map((u) => (u.id_user === currentUser.id_user ? updatedUser : u)));
-      setCurrentUser(updatedUser);
+      const updatedUser: User = { ...currentUser, role: 'mahasiswa' }
+      setUsers(prev => prev.map(u => u.id_user === currentUser.id_user ? updatedUser : u))
+      setCurrentUser(updatedUser)
+      await api.upsertUsers([updatedUser])
     }
-  };
+  }
 
-  // Admin: Approve Calon Maba (Generates sequential NIM and shifts status to 'Aktif')
-  const handleApproveMaba = (userId: string, assignedNIM: string) => {
-    // 1. Update Mahasiswa table: status to 'Aktif', assign the generated NIM
-    setMahasiswa((prev) =>
-      prev.map((m) => (m.id_user === userId ? { ...m, status: 'Aktif', nim: assignedNIM } : m))
-    );
+  const handleApproveMaba = async (userId: string, assignedNIM: string) => {
+    const updatedMhs = mahasiswa.map(m =>
+      m.id_user === userId ? { ...m, status: 'Aktif' as const, nim: assignedNIM } : m
+    )
+    const updatedBerkas = berkasList.map(b =>
+      b.id_user === userId ? { ...b, status_verifikasi: 'Disetujui' as const } : b
+    )
+    const updatedUsers = users.map(u =>
+      u.id_user === userId ? { ...u, role: 'mahasiswa' as const } : u
+    )
 
-    // 2. Update Berkas table: status to 'Disetujui'
-    setBerkasList((prev) =>
-      prev.map((b) => (b.id_user === userId ? { ...b, status_verifikasi: 'Disetujui' } : b))
-    );
+    setMahasiswa(updatedMhs)
+    setBerkasList(updatedBerkas)
+    setUsers(updatedUsers)
 
-    // 3. Update User table: change role to 'mahasiswa'
-    setUsers((prev) =>
-      prev.map((u) => (u.id_user === userId ? { ...u, role: 'mahasiswa' } : u))
-    );
+    const mhsTarget = updatedMhs.find(m => m.id_user === userId)
+    const bTarget = updatedBerkas.find(b => b.id_user === userId)
+    const uTarget = updatedUsers.find(u => u.id_user === userId)
+    await Promise.all([
+      mhsTarget && api.upsertMahasiswa([mhsTarget]),
+      bTarget && api.upsertBerkas([bTarget]),
+      uTarget && api.upsertUsers([uTarget]),
+    ])
 
-    // If the approved user is current user, update session immediately
     if (currentUser?.id_user === userId) {
-      setCurrentUser((prev) => (prev ? { ...prev, role: 'mahasiswa' } : null));
+      const newRole: User = { ...currentUser, role: 'mahasiswa' }
+      setCurrentUser(newRole)
     }
-  };
+  }
 
-  // Admin: Reject Calon Maba with custom feedback reason
-  const handleRejectMaba = (userId: string, feedback: string) => {
-    setBerkasList((prev) =>
-      prev.map((b) => (b.id_user === userId ? { ...b, status_verifikasi: 'Ditolak', catatan: feedback } : b))
-    );
-  };
+  const handleRejectMaba = async (userId: string, feedback: string) => {
+    const updated = berkasList.map(b =>
+      b.id_user === userId ? { ...b, status_verifikasi: 'Ditolak' as const, catatan: feedback } : b
+    )
+    setBerkasList(updated)
+    const target = updated.find(b => b.id_user === userId)
+    if (target) await api.upsertBerkas([target])
+  }
 
-  // Admin: Add new curriculum course schedule
-  const handleAddSchedule = (data: Omit<JadwalKuliah, 'id_jadwal'>) => {
-    const newSchedule: JadwalKuliah = {
-      id_jadwal: `J_${Date.now()}`,
-      ...data,
-    };
-    setJadwalKuliahList((prev) => [...prev, newSchedule]);
-  };
+  const handleAddSchedule = async (data: Omit<JadwalKuliah, 'id_jadwal'>) => {
+    const newSchedule: JadwalKuliah = { id_jadwal: `J_${Date.now()}`, ...data }
+    setJadwalKuliahList(prev => [...prev, newSchedule])
+    await api.upsertJadwal([newSchedule])
+  }
 
-  // Admin: Delete course schedule
-  const handleDeleteSchedule = (idJadwal: string) => {
-    setJadwalKuliahList((prev) => prev.filter((j) => j.id_jadwal !== idJadwal));
-  };
+  const handleDeleteSchedule = async (idJadwal: string) => {
+    setJadwalKuliahList(prev => prev.filter(j => j.id_jadwal !== idJadwal))
+    await api.deleteJadwal([idJadwal])
+  }
 
-  // Admin: Input / Update student grade (penilaian)
-  const handleSaveGrade = (nim: string, kodeMk: string, nilaiAngka: number, nilaiHuruf: string) => {
-    setNilaiList((prev) => {
-      const existingIndex = prev.findIndex((n) => n.nim === nim && n.kode_mk === kodeMk);
-      if (existingIndex > -1) {
-        return prev.map((n, idx) =>
-          idx === existingIndex ? { ...n, nilai_angka: nilaiAngka, nilai_huruf: nilaiHuruf } : n
-        );
-      } else {
-        const newGrade: Nilai = {
-          id_nilai: `N_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          nim,
-          kode_mk: kodeMk,
-          nilai_angka: nilaiAngka,
-          nilai_huruf: nilaiHuruf,
-        };
-        return [...prev, newGrade];
-      }
-    });
-  };
+  const handleSaveGrade = async (nim: string, kodeMk: string, nilaiAngka: number, nilaiHuruf: string) => {
+    const existing = nilaiList.find(n => n.nim === nim && n.kode_mk === kodeMk)
+    const grade: Nilai = existing
+      ? { ...existing, nilai_angka: nilaiAngka, nilai_huruf: nilaiHuruf }
+      : { id_nilai: `N_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, nim, kode_mk: kodeMk, nilai_angka: nilaiAngka, nilai_huruf: nilaiHuruf }
 
-  // Mahasiswa Aktif: Save/Finalize KRS selection
-  const handleSaveKRS = (selectedJadwalIds: string[]) => {
-    const activeMhs = mahasiswa.find((m) => m.id_user === currentUser?.id_user);
-    if (!activeMhs) return;
+    setNilaiList(prev => prev.filter(n => !(n.nim === nim && n.kode_mk === kodeMk)).concat(grade))
+    await api.upsertNilai([grade])
+  }
 
-    const newKrsId = `KRS_${Date.now()}`;
+  const handleSaveKRS = async (selectedJadwalIds: string[]) => {
+    const activeMhs = mahasiswa.find(m => m.id_user === currentUser?.id_user)
+    if (!activeMhs) return
+
+    const newKrsId = `KRS_${Date.now()}`
     const newKRS: KRS = {
-      id_krs: newKrsId,
-      nim: activeMhs.nim,
-      semester_aktif: currentSystemSemester,
-      tanggal_krs: new Date().toISOString(),
-    };
-
+      id_krs: newKrsId, nim: activeMhs.nim,
+      semester_aktif: currentSystemSemester, tanggal_krs: new Date().toISOString()
+    }
     const newDetails: DetailKRS[] = selectedJadwalIds.map((jadwalId, index) => ({
-      id_detail: `DKRS_${Date.now()}_${index}`,
-      id_krs: newKrsId,
-      id_jadwal: jadwalId,
-    }));
+      id_detail: `DKRS_${Date.now()}_${index}`, id_krs: newKrsId, id_jadwal: jadwalId
+    }))
 
-    // Remove any previous KRS for this student for current semester to overwrite
-    setKrsList((prev) => prev.filter((k) => !(k.nim === activeMhs.nim && k.semester_aktif === currentSystemSemester)));
-    setDetailKrsList((prev) => prev.filter((d) => d.id_krs !== krsList.find((k) => k.nim === activeMhs.nim && k.semester_aktif === currentSystemSemester)?.id_krs));
+    const prevKrs = krsList.find(k => k.nim === activeMhs.nim && k.semester_aktif === currentSystemSemester)
+    if (prevKrs) await api.deleteDetailKRSByKrsId(prevKrs.id_krs)
+    await api.deleteKRSByNimSemester(activeMhs.nim, currentSystemSemester)
 
-    // Append new records
-    setKrsList((prev) => [...prev, newKRS]);
-    setDetailKrsList((prev) => [...prev, ...newDetails]);
-    alert(`KRS Anda untuk Semester ${currentSystemSemester} berhasil disimpan dan dikunci ke database akademik!`);
-  };
+    await api.upsertKRS([newKRS])
+    await api.upsertDetailKRS(newDetails)
 
-  // Retrieve current active student's profile bio
-  const currentMahasiswaProfile = mahasiswa.find((m) => m.id_user === currentUser?.id_user);
-  
-  // Retrieve current active student's uploaded documents
-  const currentBerkasProfile = berkasList.find((b) => b.id_user === currentUser?.id_user);
+    setKrsList(prev => prev.filter(k => !(k.nim === activeMhs.nim && k.semester_aktif === currentSystemSemester)).concat(newKRS))
+    setDetailKrsList(prev => {
+      const filtered = prevKrs ? prev.filter(d => d.id_krs !== prevKrs.id_krs) : prev
+      return filtered.concat(newDetails)
+    })
+
+    alert(`KRS Anda untuk Semester ${currentSystemSemester} berhasil disimpan!`)
+  }
+
+  const currentMahasiswaProfile = mahasiswa.find(m => m.id_user === currentUser?.id_user)
+  const currentBerkasProfile = berkasList.find(b => b.id_user === currentUser?.id_user)
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center" id="sia-loading">
+        <div className="text-center space-y-4">
+          <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Memuat database akademik...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-800" id="sia-app-container">
-      {/* 1. Global Simulation Controller Bar at top */}
       <SimulatorBar
         users={users}
         mahasiswa={mahasiswa}
@@ -384,24 +260,20 @@ export default function App() {
         onAddSemester={handleAddSemester}
       />
 
-      {/* 2. Top Navigation Bar */}
       <Header
         currentUser={currentUser}
         mahasiswa={currentMahasiswaProfile}
         onLogout={handleLogout}
       />
 
-      {/* 3. Primary Dashboard Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {!currentUser ? (
-          /* Authentication Screen (Login/Register) if no active session */
           <AuthScreen
             onLogin={handleLogin}
             onRegister={handleRegister}
             onSwitchToSimulationUser={handleSwitchUser}
           />
         ) : (
-          /* Render designated interface based on current user role */
           <div className="space-y-6">
             {currentUser.role === 'maba' && (
               <MabaView
@@ -450,10 +322,9 @@ export default function App() {
         )}
       </main>
 
-      {/* 4. Footer */}
       <footer className="bg-white border-t border-slate-200/60 py-6 text-center text-xs text-slate-400 font-medium shrink-0 mt-12">
         <p>© 2026 Universitas Teknologi Akademik. Dikembangkan secara mandiri melalui Sistem Informasi Akademik.</p>
       </footer>
     </div>
-  );
+  )
 }
