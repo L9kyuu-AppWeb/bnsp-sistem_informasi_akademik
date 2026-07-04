@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Informasi Akademik",
+  "description": "Sistem Informasi Akademik untuk pendaftaran mahasiswa baru, pengisian KRS, dan pemantauan nilai (KHS).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
