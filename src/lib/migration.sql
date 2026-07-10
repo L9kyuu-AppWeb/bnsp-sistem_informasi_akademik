@@ -73,6 +73,11 @@ CREATE TABLE nilai (
   nilai_huruf TEXT NOT NULL
 );
 
+CREATE TABLE system_config (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL
+);
+
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mahasiswa ENABLE ROW LEVEL SECURITY;
@@ -82,6 +87,7 @@ ALTER TABLE jadwal_kuliah ENABLE ROW LEVEL SECURITY;
 ALTER TABLE krs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE detail_krs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nilai ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
 
 -- RLS: Admin can read/write all
 CREATE POLICY "admin_all_users" ON users FOR ALL USING (true);
@@ -92,6 +98,7 @@ CREATE POLICY "admin_all_jadwal" ON jadwal_kuliah FOR ALL USING (true);
 CREATE POLICY "admin_all_krs" ON krs FOR ALL USING (true);
 CREATE POLICY "admin_all_detail_krs" ON detail_krs FOR ALL USING (true);
 CREATE POLICY "admin_all_nilai" ON nilai FOR ALL USING (true);
+CREATE POLICY "admin_all_config" ON system_config FOR ALL USING (true);
 
 -- Seed data
 INSERT INTO users (id_user, username, email, role) VALUES
@@ -143,3 +150,7 @@ INSERT INTO nilai (id_nilai, nim, kode_mk, nilai_angka, nilai_huruf) VALUES
   ('N04', '202401012', 'IF201', 82, 'AB'),
   ('N05', '202401012', 'IF202', 85, 'A'),
   ('N06', '202401012', 'IF203', 70, 'B');
+
+INSERT INTO system_config (key, value) VALUES
+  ('current_semester', '3'::jsonb),
+  ('semesters', '[3, 4]'::jsonb);

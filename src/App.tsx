@@ -26,7 +26,7 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const [u, m, b, mk, j, n, k, dk] = await Promise.all([
+        const [u, m, b, mk, j, n, k, dk, cfg] = await Promise.all([
           api.fetchUsers(),
           api.fetchMahasiswa(),
           api.fetchBerkas(),
@@ -35,6 +35,7 @@ export default function App() {
           api.fetchNilai(),
           api.fetchKRS(),
           api.fetchDetailKRS(),
+          api.fetchSystemConfig(),
         ])
         setUsers(u)
         setMahasiswa(m)
@@ -44,6 +45,8 @@ export default function App() {
         setNilaiList(n)
         setKrsList(k)
         setDetailKrsList(dk)
+        setCurrentSystemSemester(cfg.current_semester)
+        setSemesters(cfg.semesters)
       } catch (err: any) {
         console.error('Gagal load data dari Supabase:', err)
         const msg = err?.message || err?.error_description || JSON.stringify(err)
@@ -54,9 +57,17 @@ export default function App() {
     })()
   }, [])
 
+  useEffect(() => {
+    api.upsertConfig('current_semester', currentSystemSemester)
+  }, [currentSystemSemester])
+
+  useEffect(() => {
+    api.upsertConfig('semesters', semesters)
+  }, [semesters])
+
   const handleResetData = async () => {
     if (!confirm('Reset semua data ke awal? Data di database akan dihapus.')) return
-    const tables = ['detail_krs', 'krs', 'nilai', 'berkas_pendaftaran', 'jadwal_kuliah', 'mahasiswa', 'mata_kuliah', 'users']
+    const tables = ['detail_krs', 'krs', 'nilai', 'berkas_pendaftaran', 'jadwal_kuliah', 'mahasiswa', 'mata_kuliah', 'users', 'system_config']
     for (const t of tables) {
       await supabase.from(t).delete().neq('id', '00000000-0000-0000-0000-000000000000')
     }

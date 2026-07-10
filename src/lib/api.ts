@@ -27,7 +27,7 @@ export const deleteUsers = (ids: string[]) => del('users', 'id_user', ids)
 // Mahasiswa
 export const fetchMahasiswa = () => fetchAll<Mahasiswa>('mahasiswa')
 export const upsertMahasiswa = (rows: Mahasiswa[]) => upsert('mahasiswa', rows)
-export const deleteMahasiswa = (ids: string[]) => del('mahasiswa', 'user_id', ids)
+export const deleteMahasiswa = (ids: string[]) => del('mahasiswa', 'id_user', ids)
 
 // Berkas
 export const fetchBerkas = () => fetchAll<BerkasPendaftaran>('berkas_pendaftaran')
@@ -57,3 +57,23 @@ export const deleteDetailKRSByKrsId = (krsId: string) =>
 // Nilai
 export const fetchNilai = () => fetchAll<Nilai>('nilai')
 export const upsertNilai = (rows: Nilai[]) => upsert('nilai', rows)
+
+interface SystemConfig {
+  key: string
+  value: any
+}
+
+export async function fetchSystemConfig(): Promise<{ current_semester: number; semesters: number[] }> {
+  const { data, error } = await supabase.from('system_config').select('*')
+  if (error) throw error
+  const cfg = data as SystemConfig[]
+  return {
+    current_semester: Number(cfg.find(c => c.key === 'current_semester')?.value ?? 3),
+    semesters: cfg.find(c => c.key === 'semesters')?.value ?? [3, 4],
+  }
+}
+
+export async function upsertConfig(key: string, value: any): Promise<void> {
+  const { error } = await supabase.from('system_config').upsert({ key, value } as any)
+  if (error) throw error
+}
