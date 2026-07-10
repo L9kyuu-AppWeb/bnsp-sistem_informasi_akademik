@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import type { User, Mahasiswa, BerkasPendaftaran, MataKuliah, JadwalKuliah, KRS, DetailKRS, Nilai } from '../types'
+import { initialUsers, initialMahasiswa, initialBerkasPendaftaran, initialMataKuliah, initialJadwalKuliah, initialNilai } from '../data'
 
 type TableName = 'users' | 'mahasiswa' | 'berkas_pendaftaran' | 'mata_kuliah' | 'jadwal_kuliah' | 'krs' | 'detail_krs' | 'nilai'
 
@@ -76,4 +77,32 @@ export async function fetchSystemConfig(): Promise<{ current_semester: number; s
 export async function upsertConfig(key: string, value: any): Promise<void> {
   const { error } = await supabase.from('system_config').upsert({ key, value } as any)
   if (error) throw error
+}
+
+// Reset database: delete all rows, re-insert seed data
+export async function resetDatabase(): Promise<void> {
+  // Delete in FK order
+  const deleteAll = async (table: string, col: string) => {
+    const { error } = await supabase.from(table).delete().neq(col, '___none___')
+    if (error) throw error
+  }
+  await deleteAll('detail_krs', 'id_detail')
+  await deleteAll('krs', 'id_krs')
+  await deleteAll('nilai', 'id_nilai')
+  await deleteAll('berkas_pendaftaran', 'id_berkas')
+  await deleteAll('jadwal_kuliah', 'id_jadwal')
+  await deleteAll('mahasiswa', 'id_user')
+  await deleteAll('mata_kuliah', 'kode_mk')
+  await deleteAll('system_config', 'key')
+  await deleteAll('users', 'id_user')
+
+  // Re-insert seed data
+  await upsertUsers(initialUsers)
+  await upsertMahasiswa(initialMahasiswa)
+  await upsertBerkas(initialBerkasPendaftaran)
+  await upsertMataKuliah(initialMataKuliah)
+  await upsertJadwal(initialJadwalKuliah)
+  await upsertNilai(initialNilai)
+  await upsertConfig('current_semester', 3)
+  await upsertConfig('semesters', [3, 4])
 }

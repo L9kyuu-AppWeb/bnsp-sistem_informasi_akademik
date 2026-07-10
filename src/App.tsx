@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mahasiswa, BerkasPendaftaran, MataKuliah, JadwalKuliah, KRS, DetailKRS, Nilai } from './types';
 import * as api from './lib/api';
-import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import SimulatorBar from './components/SimulatorBar';
 import AuthScreen from './components/AuthScreen';
@@ -67,10 +66,7 @@ export default function App() {
 
   const handleResetData = async () => {
     if (!confirm('Reset semua data ke awal? Data di database akan dihapus.')) return
-    const tables = ['detail_krs', 'krs', 'nilai', 'berkas_pendaftaran', 'jadwal_kuliah', 'mahasiswa', 'mata_kuliah', 'users', 'system_config']
-    for (const t of tables) {
-      await supabase.from(t).delete().neq('id', '00000000-0000-0000-0000-000000000000')
-    }
+    await api.resetDatabase()
     window.location.reload()
   }
 
